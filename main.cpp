@@ -3,9 +3,16 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <unordered_map>
+#include <utility>
+#include <cstring>
+
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
+
+// tensors[name] = (offset ptr, [shape])
+std::unordered_map<std::string, std::pair<float*, std::vector<size_t>>> tensors;
 
 void parse_file(void* ptr) {
 
@@ -22,10 +29,25 @@ void parse_file(void* ptr) {
 
     json j = json::parse(json_start, json_start + header_size);
 
-    for (json::iterator it = j.begin(); it != j.end(); ++it) {
-        std::cout << it.key() << " : " << it.value() << "\n";
-    }
+    std::string ignore = ".attn.bias";
 
+    for (json::iterator it = j.begin(); it != j.end(); ++it) {
+        // check if h.N.attn.bias, then skip. we will create our own causal mask later
+        std::string name = it.key();
+        if (name.size() > 10) {
+            std::string check_ignore = name.substr(name.size() - 10);
+            if (ignore == check_ignore || name == "__metadata__") {
+                // skip 
+                continue;
+            }
+        }
+        std::vector<uint64_t> data_offsets = it.value().at("data_offsets");
+        float* start_ptr = (float*)(data + 8 + header_size + data_offsets[1]);
+
+        std::vector<size_t> shape = it.value().at("shape");
+
+        tensors[name] = std::make_pair(start_ptr, shape);
+    }
 }
 
 int main() {
