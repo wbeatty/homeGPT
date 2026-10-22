@@ -1,1 +1,5 @@
 model.safetensors
+main.dSYM/
+main
+.vscode/
+Makefile
