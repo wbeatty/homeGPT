@@ -3,3 +3,5 @@ main.dSYM/
 main
 .vscode/
 Makefile
+*.o
+.clangd
